@@ -3,14 +3,14 @@ from wasp import *
 
 # Set the characteristics of the world: window dimensions and gravity (indicative value 4):
 WIDTH = 1200; HEIGHT = 800; GRAVITY = 10
-BUTTERFLIES = 9  # number of butterflies in the world
-OBSTACLES = 0  # number of obstacles
+BUTTERFLIES = 13  # number of butterflies in the world
+OBSTACLES = 3  # number of obstacles
 WASPS = 1  # number of wasps in the world
-REFRESH_TIME = 15  # time in msec
+REFRESH_TIME = 10  # time in msec
 
 # general parameters of the butterflies and wasps:
-MAX_SPEED = 10
-MAX_FORCE = 5
+MAX_SPEED = 5
+MAX_FORCE = 2
 MASS = 5
 # parameters for the wandering
 RADIUS = 200
@@ -27,10 +27,10 @@ world = World("New World", WIDTH, HEIGHT, GRAVITY, OBSTACLES)
 top_window, canvas, gravity, obstacles = world.create()
 
 # create an array of butterflies with random characteristics:
-butterflies = [Butterfly(canvas, randrange(2, MAX_SPEED), randrange(1, MAX_FORCE), MASS, RADIUS, DISTANCE) for i in range(BUTTERFLIES)]
+butterflies = [Butterfly(canvas, randrange(1, MAX_SPEED), randrange(1, MAX_FORCE), MASS, RADIUS, DISTANCE) for i in range(BUTTERFLIES)]
 
 # create an array of wasps with random characteristics (slightly more speed and force than the butterflies):
-wasps = [Wasp(canvas, randrange(3, MAX_SPEED), randrange(2, MAX_FORCE), MASS, RADIUS, DISTANCE) for i in range(WASPS)]
+wasps = [Wasp(canvas, randrange(2, MAX_SPEED), randrange(1, MAX_FORCE), MASS, RADIUS, DISTANCE) for i in range(WASPS)]
 
 #------------------------------------------------------------------
 # butterfly behaviours: using the after method it re-runs inside the tkinter mainloop
@@ -42,7 +42,7 @@ def butterfly_behaviours(gravity):
     for butterfly in butterflies:
         # update its location (move):
         butterfly.move()
-
+        # Avoid wasps:
         butterfly.avoid_wasps(wasps)
 
         # start wandering only if not hunted by a wasp:
@@ -96,6 +96,13 @@ def wasp_behaviours(gravity):
     # re-runs the method each REFRESH_TIME msec:
     canvas.after(REFRESH_TIME, wasp_behaviours, gravity)
 
+#  this runs every 200 ms and only cluster_butterflies runs here
+def wasp_behaviours2():
+    for wasp in wasps:
+        wasp.cluster_butterflies(butterflies)
+
+    canvas.after(200, wasp_behaviours2)
+
 #----------------------------------------------
 # define left mouse button press callback - food offering for butterflies:
 def left_button_press(event):
@@ -125,5 +132,6 @@ canvas.bind('<ButtonRelease-1>', left_button_release)
 
 butterfly_behaviours(gravity)
 wasp_behaviours(gravity)
+# wasp_behaviours2()
 
 top_window.mainloop()

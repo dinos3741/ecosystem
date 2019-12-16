@@ -85,7 +85,7 @@ class Wasp(Butterfly):
 
     # ------------------------------------------------------------------
     # method to classify butterfly groups in two and go towards the closest
-    def chase_butterflies2(self, butterflies):
+    def cluster_butterflies(self, butterflies):
         # I will classify the butterflies to two groups, and chase the closest.
         # slow if I do in every frame, but every ten frames perhaps? I can make another routine in main
         # with a different timer (100 ms) that runs a different set of routines.
@@ -95,7 +95,8 @@ class Wasp(Butterfly):
             x_dimension.append(butterfly.location.x)
             y_dimension.append(butterfly.location.y)
         data = np.column_stack((x_dimension, y_dimension))
-        k_means = KMeans(n_clusters=2, max_iter=70)
+        #
+        k_means = KMeans(n_clusters=2, max_iter=50)
         k_means.fit(data)
         distance11 = self.location.distance(PVector(k_means.cluster_centers_[0][0], k_means.cluster_centers_[0][1]))
         distance12 = self.location.distance(PVector(k_means.cluster_centers_[1][0], k_means.cluster_centers_[1][1]))

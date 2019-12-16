@@ -151,11 +151,7 @@ class Butterfly:
         # add acceleration to velocity:
         self.velocity.Add(self.acceleration)
         # limit top speed according to hunted or not:
-        if self.hunted:
-            self.velocity.Limit(self.max_speed * 1.2)
-        else:
-            self.velocity.Limit(self.max_speed)
-
+        self.velocity.Limit(self.max_speed)
         # add velocity to position:
         self.location.Add(self.velocity)
         # reset the acceleration at the end of each frame:
