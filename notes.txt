@@ -1,0 +1,18 @@
+ * `main.py`: The entry point of the application. It initializes the World, creates the Butterfly
+     objects, and manages the main simulation loop (butterfly_behaviours). It also handles user input
+     for creating "food" for the butterflies.
+   * `world.py`: Defines the World class, which creates the main tkinter window and canvas. It also
+     has classes for Obstacle and Food.
+   * `butterfly.py`: This is the core of the simulation. It defines the Butterfly class, its movement
+     (move, seek, wander, separate), and its interaction with the environment (boundaries,
+     avoid_obstacle). It also includes implementations for a Perceptron and a NeuralNetwork to control
+      the butterfly's behavior, which is quite interesting.
+   * `PVector.py`: A helper class for 2D vector mathematics, used for position, velocity, and forces.
+   * `Matrix.py`: A basic matrix library.
+   * `NeuralNetwork.py`: A three-layer neural network implementation.
+   * `Perceptron.py`: A single-neuron perceptron implementation.
+
+
+  In the future, to install all the required packages at once, you can run the following command in
+  your terminal:
+  pip install -r requirements.txt
