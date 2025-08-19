@@ -13,6 +13,17 @@
    * `Perceptron.py`: A single-neuron perceptron implementation.
 
 
+The wasp.py file defines a Wasp class that inherits from Butterfly. It seems to have its own
+  unique behaviors:
+   * It can chase_butterflies, targeting the nearest one.
+   * It has a different seek method that gets much closer to its target.
+   * Its bounce method reduces its max_speed with every wall collision.
+
+
+  The wasp.png is the image asset for the wasp.
+
+
+
   In the future, to install all the required packages at once, you can run the following command in
   your terminal:
   pip install -r requirements.txt
