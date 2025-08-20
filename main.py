@@ -3,12 +3,13 @@ from PVector import PVector
 import random as rand
 from butterfly import Butterfly
 from wasp import Wasp
+from obstacle import Obstacle
 
 # Set the characteristics of the world
 WIDTH, HEIGHT = 1200, 800
 FPS = 60
-BUTTERFLIES = 10
-WASPS = 2 # Set to 2 wasps
+BUTTERFLIES = 5
+WASPS = 0
 
 # --- Constants for creating creatures ---
 MAX_SPEED = 6
@@ -49,11 +50,17 @@ def main():
         Wasp(
             rand.randrange(0, WIDTH),
             rand.randrange(0, HEIGHT),
-            max(0.5, rand.gauss(MAX_SPEED * 1.2, 0.5)), # Wasps slightly faster
-            max(0.1, rand.gauss(MAX_FORCE * 1.2, 0.1)), # Wasps slightly stronger
-            max(1, rand.gauss(MEAN_MASS * 0.8, 0.5)) # Wasps slightly lighter
+            max(0.5, rand.gauss(MAX_SPEED * 1.2, 0.5)),
+            max(0.1, rand.gauss(MAX_FORCE * 1.2, 0.1)),
+            max(1, rand.gauss(MEAN_MASS * 0.8, 0.5))
         )
         for _ in range(WASPS)
+    ]
+
+    # Create obstacles
+    obstacles = [
+        Obstacle(300, 200, 100, 50, (100, 100, 100)), # Grey rectangle
+        Obstacle(700, 400, 50, 150, (100, 100, 100))  # Another grey rectangle
     ]
 
     running = True
@@ -76,6 +83,10 @@ def main():
         # Drawing (fill background once per frame)
         screen.fill(LIGHT_BLUE)
 
+        # Draw obstacles (before creatures, so creatures are on top)
+        for obs in obstacles:
+            obs.draw(screen)
+
         # Update and draw all butterflies
         # Filter out dead butterflies
         butterflies = [b for b in butterflies if getattr(b, 'is_alive', True)]
@@ -88,8 +99,14 @@ def main():
             
             b.boundaries(WIDTH, HEIGHT)
             b.separate(butterflies) # Butterflies separate from each other
-            b.move()
-            b.bounce(WIDTH, HEIGHT)
+            b.avoid_obstacles(obstacles) # Add obstacle avoidance
+            
+            # Add bounce from obstacles
+            for obs in obstacles:
+                b.bounce_from_obstacle(obs)
+
+            b.move() # Move after all forces and bounces are applied
+            b.bounce(WIDTH, HEIGHT) # Bounce from screen edges
 
             b.draw(screen)
 
@@ -100,13 +117,17 @@ def main():
             if butterflies: # Check if the list of butterflies is not empty
                 w.chase_butterflies(butterflies)
             else:
-                w.wander() # Make wasps wander if no butterflies to chase
+                w.wander()
 
-            w.boundaries(WIDTH, HEIGHT) # Wasps avoid boundaries
-            w.move() # Wasps move
+            w.boundaries(WIDTH, HEIGHT)
+            w.avoid_obstacles(obstacles) # Add obstacle avoidance for wasps
+            for obs in obstacles:
+                w.bounce_from_obstacle(obs) # Add bounce from obstacles for wasps
+
+            w.move()
             w.bounce(WIDTH, HEIGHT) # Wasp's bounce reduces speed
 
-            w.draw(screen) # Draw each wasp
+            w.draw(screen)
 
         pygame.display.flip()
 
