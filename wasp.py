@@ -1,8 +1,8 @@
 import pygame
-from PVector import PVector
+from pygame.math import Vector2
 import random as rand
 from butterfly import Butterfly
-from math import pi, cos, sin
+from math import pi, cos, sin, degrees, radians
 from Perceptron import Perceptron
 
 class Wasp(Butterfly):
@@ -32,29 +32,34 @@ class Wasp(Butterfly):
         self.brain = Perceptron(nr_forces, 0.01)
         self.forces = []
         for i in range(nr_forces):
-            force = PVector(self.max_force, 0)
-            force.Rotate(2 * pi * i / nr_forces)
+            force = Vector2(self.max_force, 0)
+            force = force.rotate(degrees(2 * pi * i / nr_forces)) # Use Vector2.rotate
             self.forces.append(force)
 
     # Wasps have a different seek method, with slowing down later before reaching the butterflies
     # This overrides Butterfly.seek, so it must match its signature (target, direction)
     def seek(self, target, direction):
         CLOSE_ENOUGH = 10  # Wasps get much closer than butterflies (Butterfly has 50)
-        desired = target.Sub(self.location)
-        distance = desired.get_Magnitude()
+        desired = target - self.location # Use operator overloading
+        distance = desired.length() # Use Vector2.length
 
         if distance < CLOSE_ENOUGH:
             target_speed = self.max_speed * (distance / CLOSE_ENOUGH)
         else:
             target_speed = self.max_speed
 
-        desired.set_Magnitude(target_speed)
+        if desired.length() > 0:
+            desired = desired.normalize() * target_speed # Use Vector2.normalize and multiply
+        else:
+            desired = Vector2(0,0)
 
         if direction == 'avoid':
-            desired.Mult(-1)
+            desired *= -1 # Use operator overloading
 
-        steer = desired.Sub(self.velocity)
-        steer.Limit(self.max_force)
+        steer = desired - self.velocity # Use operator overloading
+        
+        if steer.length() > self.max_force:
+            steer.scale_to_length(self.max_force)
         self.apply_force(steer)
 
     # Different bounce method from the butterflies: here for each hit on wall, force is reduced by 2%
@@ -82,7 +87,7 @@ class Wasp(Butterfly):
         min_distance = float('inf')
         nearest_butterfly = None
         for b in alive_butterflies:
-            distance = self.location.Distance(b.location)
+            distance = self.location.distance_to(b.location) # Use Vector2.distance_to
             if distance < min_distance:
                 min_distance = distance
                 nearest_butterfly = b
@@ -91,5 +96,25 @@ class Wasp(Butterfly):
             self.seek(nearest_butterfly.location, "attract") # Call wasp's seek method
 
             # If butterfly reached, mark it as not alive:
-            if self.location.Distance(nearest_butterfly.location) < 10: # Wasp's CLOSE_ENOUGH
+            if self.location.distance_to(nearest_butterfly.location) < 10: # Wasp's CLOSE_ENOUGH
                 nearest_butterfly.is_alive = False
+
+    def update_behaviors(self, food_target, obstacles, all_creatures, width, height):
+        # Filter out only the actual butterflies from all_creatures that are alive
+        actual_butterflies = [c for c in all_creatures if isinstance(c, Butterfly) and not isinstance(c, Wasp) and getattr(c, 'is_alive', True)]
+
+        # Decision: Chase butterflies or wander
+        if actual_butterflies: # Check if there are actual butterflies to chase
+            self.chase_butterflies(actual_butterflies) # Pass only actual butterflies
+        else:
+            self.wander()
+        
+        # Apply other behaviors
+        self.boundaries(width, height)
+        self.avoid_obstacles(obstacles) # Add obstacle avoidance for wasps
+        for obs in obstacles:
+            self.bounce_from_obstacle(obs) # Add bounce from obstacles for wasps
+
+        # Update motion
+        self.move()
+        self.bounce(width, height) # Wasp's bounce reduces speed

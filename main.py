@@ -1,137 +1,131 @@
 import pygame
-from PVector import PVector
+from pygame.math import Vector2
 import random as rand
 from butterfly import Butterfly
 from wasp import Wasp
 from obstacle import Obstacle
 
-# Set the characteristics of the world
-WIDTH, HEIGHT = 1200, 800
-FPS = 70
-BUTTERFLIES = 5
-WASPS = 0
+class Game:
+    # Constants
+    WIDTH = 1200
+    HEIGHT = 800
+    FPS = 70
+    BUTTERFLIES = 5
+    WASPS = 0
 
-# --- Constants for creating creatures ---
-MAX_SPEED = 6
-MAX_FORCE = 0.4
-MEAN_MASS = 4
-# ------------------------------------
+    MAX_SPEED = 8
+    MAX_FORCE = 0.3
+    MEAN_MASS = 4
 
-# --- Global variables for food source ---
-food_exists = False
-food = PVector(0, 0)
-# ------------------------------------
+    LIGHT_BLUE = (173, 216, 230)
 
-# Colors
-LIGHT_BLUE = (173, 216, 230)
+    def __init__(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode((Game.WIDTH, Game.HEIGHT))
+        pygame.display.set_caption("Ecosystem")
+        self.clock = pygame.time.Clock()
 
-def main():
-    global food_exists, food
+        # Game state variables
+        self.food_exists = False
+        self.food = Vector2(0, 0)
 
-    pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Ecosystem")
-    clock = pygame.time.Clock()
+        # Create creatures and obstacles
+        self.butterflies = self._create_butterflies()
+        self.wasps = self._create_wasps()
+        self.obstacles = self._create_obstacles()
 
-    # Create butterflies
-    butterflies = [
-        Butterfly(
-            rand.randrange(0, WIDTH),
-            rand.randrange(0, HEIGHT),
-            max(0.5, rand.gauss(MAX_SPEED, 0.5)),
-            max(0.1, rand.gauss(MAX_FORCE, 0.1)),
-            max(1, rand.gauss(MEAN_MASS, 0.5))
-        )
-        for _ in range(BUTTERFLIES)
-    ]
+    def _create_butterflies(self):
+        return [
+            Butterfly(
+                rand.randrange(0, Game.WIDTH),
+                rand.randrange(0, Game.HEIGHT),
+                max(0.5, rand.gauss(Game.MAX_SPEED, 0.5)),
+                max(0.1, rand.gauss(Game.MAX_FORCE, 0.2)),
+                max(1, rand.gauss(Game.MEAN_MASS, 0.5))
+            )
+            for _ in range(Game.BUTTERFLIES)
+        ]
 
-    # Create wasps
-    wasps = [
-        Wasp(
-            rand.randrange(0, WIDTH),
-            rand.randrange(0, HEIGHT),
-            max(0.5, rand.gauss(MAX_SPEED * 1.2, 0.5)),
-            max(0.1, rand.gauss(MAX_FORCE * 1.2, 0.1)),
-            max(1, rand.gauss(MEAN_MASS * 0.8, 0.5))
-        )
-        for _ in range(WASPS)
-    ]
+    def _create_wasps(self):
+        return [
+            Wasp(
+                rand.randrange(0, Game.WIDTH),
+                rand.randrange(0, Game.HEIGHT),
+                max(0.5, rand.gauss(Game.MAX_SPEED * 0.8, 0.5)),
+                max(0.1, rand.gauss(Game.MAX_FORCE * 1.5, 0.2)),
+                max(1, rand.gauss(Game.MEAN_MASS * 0.8, 0.5))
+            )
+            for _ in range(Game.WASPS)
+        ]
 
-    # Create obstacles
-    obstacles = [
-        Obstacle(300, 200, 100, 50, (100, 100, 100)), # Grey rectangle
-        Obstacle(700, 400, 50, 150, (100, 100, 100))  # Another grey rectangle
-    ]
+    def _create_obstacles(self):
+        return [
+            Obstacle(300, 200, 100, 50, (100, 100, 100)),
+            Obstacle(700, 400, 50, 150, (100, 100, 100))  # Another grey rectangle
+        ]
 
-    running = True
-    while running:
-        clock.tick(FPS)
-
-        # Event handling
+    def _handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                return False # Signal to quit
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Left mouse button
-                    food_exists = True
-                    mouse_x, mouse_y = event.pos
-                    food.set(mouse_x, mouse_y)
+                if event.button == 1:
+                    self.food_exists = True
+                    self.food.x, self.food.y = event.pos
             if event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:  # Left mouse button
-                    food_exists = False
+                if event.button == 1:
+                    self.food_exists = False
+        return True # Continue running
 
-        # Drawing (fill background once per frame)
-        screen.fill(LIGHT_BLUE)
-
-        # Draw obstacles (before creatures, so creatures are on top)
-        for obs in obstacles:
-            obs.draw(screen)
-
-        # Update and draw all butterflies
+    def _update_game_state(self):
         # Filter out dead butterflies
-        butterflies = [b for b in butterflies if getattr(b, 'is_alive', True)]
+        self.butterflies = [b for b in self.butterflies if getattr(b, 'is_alive', True)]
         
-        for b in butterflies:
-            if food_exists:
-                b.navigate_to_food(food, obstacles) # Use new navigation method
+        all_creatures = self.butterflies + self.wasps
+
+        # Update all butterflies
+        for b in self.butterflies:
+            if self.food_exists:
+                b.update_behaviors(self.food, self.obstacles, all_creatures, Game.WIDTH, Game.HEIGHT)
             else:
-                b.wander()
-            
-            b.boundaries(WIDTH, HEIGHT)
-            b.separate(butterflies) # Butterflies separate from each other
-            b.avoid_obstacles(obstacles) # Add obstacle avoidance
-            
-            # Add bounce from obstacles
-            for obs in obstacles:
-                b.bounce_from_obstacle(obs)
+                b.update_behaviors(None, self.obstacles, all_creatures, Game.WIDTH, Game.HEIGHT)
 
-            b.move() # Move after all forces and bounces are applied
-            b.bounce(WIDTH, HEIGHT) # Bounce from screen edges
+        # Update all wasps
+        for w in self.wasps:
+            w.update_behaviors(self.food, self.obstacles, all_creatures, Game.WIDTH, Game.HEIGHT)
 
-            b.draw(screen)
+    def _draw_elements(self):
+        self.screen.fill(Game.LIGHT_BLUE)
 
-        # Update and draw all wasps
-        for w in wasps:
-            # If there are butterflies to chase, chase them.
-            # Otherwise, wander.
-            if butterflies: # Check if the list of butterflies is not empty
-                w.chase_butterflies(butterflies)
-            else:
-                w.wander()
+        # Draw obstacles
+        for obs in self.obstacles:
+            obs.draw(self.screen)
 
-            w.boundaries(WIDTH, HEIGHT)
-            w.avoid_obstacles(obstacles) # Add obstacle avoidance for wasps
-            for obs in obstacles:
-                w.bounce_from_obstacle(obs) # Add bounce from obstacles for wasps
+        # Draw butterflies
+        for b in self.butterflies:
+            b.draw(self.screen)
 
-            w.move()
-            w.bounce(WIDTH, HEIGHT) # Wasp's bounce reduces speed
-
-            w.draw(screen)
+        # Draw wasps
+        for w in self.wasps:
+            w.draw(self.screen)
 
         pygame.display.flip()
 
-    pygame.quit()
+    def run(self):
+        running = True
+        while running:
+            self.clock.tick(Game.FPS)
+
+            running = self._handle_events()
+
+            if not running:
+                break
+
+            self._update_game_state()
+            self._draw_elements()
+
+        pygame.quit()
 
 if __name__ == '__main__':
-    main()
+    game = Game()
+    game.run()

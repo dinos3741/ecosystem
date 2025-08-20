@@ -1,16 +1,16 @@
 import pygame
 import random as rand
-from math import pi, cos, sin
+from math import pi, cos, sin, degrees, radians
 
-from PVector import PVector
+from pygame.math import Vector2
 from Perceptron import Perceptron
 
 class Butterfly:
     def __init__(self, x, y, max_speed, max_force, max_mass):
         # Motion variables
-        self.location = PVector(x, y)
-        self.velocity = PVector(0, 0)
-        self.acceleration = PVector(0, 0)
+        self.location = Vector2(x, y)
+        self.velocity = Vector2(0, 0)
+        self.acceleration = Vector2(0, 0)
         self.max_speed = max_speed
         self.max_force = max_force
         self.mass = max_mass
@@ -33,18 +33,22 @@ class Butterfly:
         self.brain = Perceptron(nr_forces, 0.01)
         self.forces = []
         for i in range(nr_forces):
-            force = PVector(self.max_force, 0)
-            force.Rotate(2 * pi * i / nr_forces)
+            force = Vector2(self.max_force, 0) # Use Vector2
+            force = force.rotate(degrees(2 * pi * i / nr_forces)) # Use Vector2.rotate
             self.forces.append(force)
 
     def move(self):
-        self.velocity.Add(self.acceleration)
-        self.velocity.Limit(self.max_speed)
-        self.location.Add(self.velocity)
-        self.acceleration.Mult(0)
+        self.velocity += self.acceleration # Use operator overloading
+        
+        # Limit speed using Vector2.scale_to_length or normalize and multiply
+        if self.velocity.length() > self.max_speed:
+            self.velocity.scale_to_length(self.max_speed)
+
+        self.location += self.velocity # Use operator overloading
+        self.acceleration *= 0 # Use operator overloading
 
     def draw(self, screen):
-        self.rect.center = (self.location.x, self.location.y)
+        self.rect.center = (int(self.location.x), int(self.location.y)) # Cast to int for rect
         screen.blit(self.image, self.rect)
 
     def bounce(self, width, height):
@@ -65,36 +69,31 @@ class Butterfly:
 
     def bounce_from_obstacle(self, obstacle):
         # Update rect's center to current location before collision check
-        self.rect.center = (self.location.x, self.location.y)
+        self.rect.center = (int(self.location.x), int(self.location.y)) # Cast to int
 
         if self.rect.colliderect(obstacle.rect):
             # Calculate previous position to determine which side was hit
-            # Subtract current velocity to get previous position
-            prev_location = self.location.Sub(self.velocity)
-            prev_rect = self.image.get_rect(center=(prev_location.x, prev_location.y))
+            prev_location = self.location - self.velocity # Use operator overloading
+            prev_rect = self.image.get_rect(center=(int(prev_location.x), int(prev_location.y))) # Cast to int
 
             # Check for collision on X axis
-            # If previous right edge was left of obstacle's left edge AND current right edge is past obstacle's left edge
             if prev_rect.right <= obstacle.rect.left and self.rect.right > obstacle.rect.left: # Hit left side of obstacle
                 self.velocity.x *= -1
                 self.location.x = obstacle.rect.left - self.size / 2 # Adjust to outside obstacle
-            # If previous left edge was right of obstacle's right edge AND current left edge is past obstacle's right edge
             elif prev_rect.left >= obstacle.rect.right and self.rect.left < obstacle.rect.right: # Hit right side of obstacle
                 self.velocity.x *= -1
                 self.location.x = obstacle.rect.right + self.size / 2 # Adjust to outside obstacle
 
             # Check for collision on Y axis
-            # If previous bottom edge was above obstacle's top edge AND current bottom edge is past obstacle's top edge
             if prev_rect.bottom <= obstacle.rect.top and self.rect.bottom > obstacle.rect.top: # Hit top side of obstacle
                 self.velocity.y *= -1
                 self.location.y = obstacle.rect.top - self.size / 2 # Adjust to outside obstacle
-            # If previous top edge was below obstacle's bottom edge AND current top edge is past obstacle's bottom edge
             elif prev_rect.top >= obstacle.rect.bottom and self.rect.top < obstacle.rect.bottom: # Hit bottom side of obstacle
                 self.velocity.y *= -1
                 self.location.y = obstacle.rect.bottom + self.size / 2 # Adjust to outside obstacle
 
             # Update rect after location change
-            self.rect.center = (self.location.x, self.location.y)
+            self.rect.center = (int(self.location.x), int(self.location.y)) # Cast to int
 
     def is_path_blocked(self, target, obstacles):
         line_start = (int(self.location.x), int(self.location.y))
@@ -120,36 +119,34 @@ class Butterfly:
         line_end = (int(food_target.x), int(food_target.y))
 
         for obs in obstacles:
-            if obs.rect.clipline(line_start, line_end): # This obstacle blocks the path
+            if obs.rect.clipline(line_start, line_end):
                 path_blocked = True
-                dist_to_obs = self.location.Distance(PVector(obs.rect.centerx, obs.rect.centery))
+                dist_to_obs = self.location.distance_to(Vector2(obs.rect.centerx, obs.rect.centery))
                 if dist_to_obs < min_dist_to_blocking_obs:
                     min_dist_to_blocking_obs = dist_to_obs
                     closest_blocking_obstacle = obs
 
         if path_blocked and closest_blocking_obstacle:
             # Path is blocked, calculate a waypoint to go around
-            obs_center = PVector(closest_blocking_obstacle.rect.centerx, closest_blocking_obstacle.rect.centery)
-            vec_to_obstacle = obs_center.Sub(self.location)
+            obs_center = Vector2(closest_blocking_obstacle.rect.centerx, closest_blocking_obstacle.rect.centery)
+            vec_to_obstacle = obs_center - self.location
             
-            offset_distance = max(closest_blocking_obstacle.rect.width, closest_blocking_obstacle.rect.height) / 2 + self.size / 2 + 130 # Increased Buffer (even more)
+            offset_distance = max(closest_blocking_obstacle.rect.width, closest_blocking_obstacle.rect.height) / 2 + self.size / 2 + 120 # Increased Buffer (even more)
 
-            waypoint1_vec = PVector(vec_to_obstacle.x, vec_to_obstacle.y)
-            waypoint1_vec.Rotate(pi / 2) # Rotate 90 degrees clockwise
-            waypoint1_vec.Normalize()
-            waypoint1_vec.Mult(offset_distance)
-            waypoint1 = PVector(obs_center.x, obs_center.y)
-            waypoint1.Add(waypoint1_vec)
+            waypoint1_vec = Vector2(vec_to_obstacle.x, vec_to_obstacle.y)
+            waypoint1_vec = waypoint1_vec.rotate(degrees(pi / 2))
+            waypoint1_vec = waypoint1_vec.normalize() * offset_distance
+            waypoint1 = Vector2(obs_center.x, obs_center.y)
+            waypoint1 += waypoint1_vec # Use operator overloading
             
-            waypoint2_vec = PVector(vec_to_obstacle.x, vec_to_obstacle.y)
-            waypoint2_vec.Rotate(-pi / 2) # Rotate 90 degrees counter-clockwise
-            waypoint2_vec.Normalize()
-            waypoint2_vec.Mult(offset_distance)
-            waypoint2 = PVector(obs_center.x, obs_center.y)
-            waypoint2.Add(waypoint2_vec)
+            waypoint2_vec = Vector2(vec_to_obstacle.x, vec_to_obstacle.y)
+            waypoint2_vec = waypoint2_vec.rotate(degrees(-pi / 2))
+            waypoint2_vec = waypoint2_vec.normalize() * offset_distance
+            waypoint2 = Vector2(obs_center.x, obs_center.y)
+            waypoint2 += waypoint2_vec # Use operator overloading
             
             # Choose the waypoint that is closer to the food target
-            if waypoint1.Distance(food_target) < waypoint2.Distance(food_target):
+            if waypoint1.distance_to(food_target) < waypoint2.distance_to(food_target):
                 waypoint = waypoint1
             else:
                 waypoint = waypoint2
@@ -161,25 +158,46 @@ class Butterfly:
             # Path is clear, seek food directly
             self.seek(food_target, "attract")
 
+    def update_behaviors(self, food_target, obstacles, all_creatures, width, height):
+        # Decision: Seek food or wander
+        if food_target is not None:
+            self.navigate_to_food(food_target, obstacles)
+        else:
+            self.wander()
+        
+        # Apply other behaviors
+        self.boundaries(width, height)
+        self.separate(all_creatures) # Pass all creatures for separation
+        self.avoid_obstacles(obstacles)
+        
+        # Handle bounces
+        for obs in obstacles:
+            self.bounce_from_obstacle(obs)
+
+        # Update motion
+        self.move()
+        self.bounce(width, height) # Bounce from screen edges
+
     def boundaries(self, width, height):
         DISTANCE_FROM_BORDER = 100
         desired = None
 
         if self.location.x < DISTANCE_FROM_BORDER:
-            desired = PVector(self.max_speed, self.velocity.y)
+            desired = Vector2(self.max_speed, self.velocity.y)
         elif self.location.x > width - DISTANCE_FROM_BORDER:
-            desired = PVector(-self.max_speed, self.velocity.y)
+            desired = Vector2(-self.max_speed, self.velocity.y)
 
         if self.location.y < DISTANCE_FROM_BORDER:
-            desired = PVector(self.velocity.x, self.max_speed)
+            desired = Vector2(self.velocity.x, self.max_speed)
         elif self.location.y > height - DISTANCE_FROM_BORDER:
-            desired = PVector(self.velocity.x, -self.max_speed)
+            desired = Vector2(self.velocity.x, -self.max_speed)
 
         if desired is not None:
-            desired.Normalize()
-            desired.Mult(self.max_speed)
-            steer = desired.Sub(self.velocity)
-            steer.Limit(self.max_force * 2)
+            desired = desired.normalize() * self.max_speed
+            steer = desired - self.velocity
+            
+            if steer.length() > self.max_force * 2:
+                steer.scale_to_length(self.max_force * 2)
             self.apply_force(steer)
 
     def avoid_obstacles(self, obstacles):
@@ -187,7 +205,7 @@ class Butterfly:
         
         for obstacle in obstacles:
             # Check if the butterfly's bounding box overlaps with an expanded obstacle bounding box
-            # This is a simplified check for proximity
+            self.rect.center = (int(self.location.x), int(self.location.y)) # Ensure rect is updated
             expanded_rect = obstacle.rect.inflate(d_max * 2, d_max * 2) # Expand obstacle rect for detection
             
             if not expanded_rect.colliderect(self.rect):
@@ -198,36 +216,42 @@ class Butterfly:
             closest_y = max(obstacle.rect.top, min(self.location.y, obstacle.rect.bottom))
             
             # Vector from closest point on obstacle to butterfly
-            diff = PVector(self.location.x - closest_x, self.location.y - closest_y)
-            distance = diff.get_Magnitude()
+            diff = Vector2(self.location.x - closest_x, self.location.y - closest_y)
+            distance = diff.length()
 
             if 0 < distance < d_max:
                 # Force away from obstacle, stronger when closer
-                diff.Normalize()
-                diff.Mult(self.max_speed * (d_max - distance) / d_max) # Scale force by inverse distance
+                diff = diff.normalize() * (self.max_speed * (d_max - distance) / d_max)
 
                 # Steer away
-                steer = diff.Sub(self.velocity)
-                steer.Limit(self.max_force * 1.5) # Stronger avoidance force
+                steer = diff - self.velocity
+                
+                if steer.length() > self.max_force * 1.5:
+                    steer.scale_to_length(self.max_force * 1.5)
                 self.apply_force(steer)
 
     def seek(self, target, direction):
         CLOSE_ENOUGH = 50
-        desired = target.Sub(self.location)
-        distance = desired.get_Magnitude()
+        desired = target - self.location
+        distance = desired.length()
 
         if distance < CLOSE_ENOUGH:
             target_speed = self.max_speed * (distance / CLOSE_ENOUGH)
         else:
             target_speed = self.max_speed
 
-        desired.set_Magnitude(target_speed)
+        if desired.length() > 0:
+            desired = desired.normalize() * target_speed
+        else:
+            desired = Vector2(0,0)
 
         if direction == 'avoid':
-            desired.Mult(-1)
+            desired *= -1
 
-        steer = desired.Sub(self.velocity)
-        steer.Limit(self.max_force)
+        steer = desired - self.velocity
+        
+        if steer.length() > self.max_force:
+            steer.scale_to_length(self.max_force)
         self.apply_force(steer)
 
     def wander(self):
@@ -237,47 +261,47 @@ class Butterfly:
         self.wander_theta += rand.uniform(-change, change)
 
         # Calculate wander target
-        wander_pos = PVector(self.velocity.x, self.velocity.y)
-        if wander_pos.get_Magnitude() == 0: # Handle case where butterfly is stationary
-            wander_pos = PVector(1, 0)
+        wander_pos = Vector2(self.velocity.x, self.velocity.y)
+        if wander_pos.length() == 0: # Handle case where butterfly is stationary
+            wander_pos = Vector2(1, 0)
             
-        wander_pos.Normalize()
-        wander_pos.Mult(wanderD)
-        wander_pos.Add(self.location)
+        wander_pos = wander_pos.normalize() * wanderD
+        wander_pos += self.location
 
-        heading = self.velocity.heading2D()
-        wander_offset = PVector(wanderR * cos(self.wander_theta + heading), wanderR * sin(self.wander_theta + heading))
+        heading = self.velocity.angle_to(Vector2(1,0))
+        wander_offset = Vector2(wanderR, 0).rotate(degrees(self.wander_theta + radians(heading)))
 
-        target = PVector(wander_pos.x + wander_offset.x, wander_pos.y + wander_offset.y)
+        target = wander_pos + wander_offset
         self.seek(target, 'attract')
 
-    def separate(self, butterflies):
+    def separate(self, all_creatures):
         separation_distance = self.size * 2
-        sum_vec = PVector(0, 0)
+        sum_vec = Vector2(0, 0)
         count = 0
-        for other in butterflies:
+        for other in all_creatures:
             if other is not self:
-                distance = self.location.Distance(other.location)
+                distance = self.location.distance_to(other.location)
                 if 0 < distance < separation_distance:
-                    diff = self.location.Sub(other.location)
-                    diff.Normalize()
-                    diff.Div(distance)  # Weight by distance
-                    sum_vec.Add(diff)
+                    diff = self.location - other.location
+                    diff = diff.normalize() / distance
+                    sum_vec += diff
                     count += 1
         if count > 0:
-            sum_vec.Div(count)
-            sum_vec.Normalize()
-            sum_vec.Mult(self.max_speed)
-            steer = sum_vec.Sub(self.velocity)
-            steer.Limit(self.max_force)
+            sum_vec /= count
+            sum_vec = sum_vec.normalize() * self.max_speed
+            steer = sum_vec - self.velocity
+            
+            if steer.length() > self.max_force:
+                steer.scale_to_length(self.max_force)
             self.apply_force(steer)
 
     def apply_force(self, force):
-        f = force.Div(self.mass)
-        self.acceleration.Add(f)
+        f = force / self.mass
+        self.acceleration += f
 
-    def apply_perceptron(self, target):
-        brain_result = self.brain.feed_forward(self.forces)
-        self.apply_force(brain_result)
-        error = target.Sub(self.location)
-        self.brain.train(self.forces, error)
+    # Removed apply_perceptron as it's not used by Butterfly or Wasp anymore.
+    # def apply_perceptron(self, target):
+    #     brain_result = self.brain.feed_forward(self.forces)
+    #     self.apply_force(brain_result)
+    #     error = target - self.location
+    #     self.brain.train(self.forces, error)
