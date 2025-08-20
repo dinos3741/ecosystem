@@ -7,7 +7,7 @@ from obstacle import Obstacle
 
 # Set the characteristics of the world
 WIDTH, HEIGHT = 1200, 800
-FPS = 60
+FPS = 70
 BUTTERFLIES = 5
 WASPS = 0
 
@@ -93,7 +93,7 @@ def main():
         
         for b in butterflies:
             if food_exists:
-                b.seek(food, "attract")
+                b.navigate_to_food(food, obstacles) # Use new navigation method
             else:
                 b.wander()
             

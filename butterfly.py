@@ -96,6 +96,71 @@ class Butterfly:
             # Update rect after location change
             self.rect.center = (self.location.x, self.location.y)
 
+    def is_path_blocked(self, target, obstacles):
+        line_start = (int(self.location.x), int(self.location.y))
+        line_end = (int(target.x), int(target.y))
+
+        for obs in obstacles:
+            if obs.rect.clipline(line_start, line_end):
+                return True # Path is blocked by this obstacle
+        return False # Path is clear
+
+    def navigate_to_food(self, food_target, obstacles):
+        # If no food, just wander
+        if food_target is None:
+            self.wander()
+            return
+
+        # Check if direct path to food is blocked
+        path_blocked = False
+        closest_blocking_obstacle = None
+        min_dist_to_blocking_obs = float('inf')
+        
+        line_start = (int(self.location.x), int(self.location.y))
+        line_end = (int(food_target.x), int(food_target.y))
+
+        for obs in obstacles:
+            if obs.rect.clipline(line_start, line_end): # This obstacle blocks the path
+                path_blocked = True
+                dist_to_obs = self.location.Distance(PVector(obs.rect.centerx, obs.rect.centery))
+                if dist_to_obs < min_dist_to_blocking_obs:
+                    min_dist_to_blocking_obs = dist_to_obs
+                    closest_blocking_obstacle = obs
+
+        if path_blocked and closest_blocking_obstacle:
+            # Path is blocked, calculate a waypoint to go around
+            obs_center = PVector(closest_blocking_obstacle.rect.centerx, closest_blocking_obstacle.rect.centery)
+            vec_to_obstacle = obs_center.Sub(self.location)
+            
+            offset_distance = max(closest_blocking_obstacle.rect.width, closest_blocking_obstacle.rect.height) / 2 + self.size / 2 + 130 # Increased Buffer (even more)
+
+            waypoint1_vec = PVector(vec_to_obstacle.x, vec_to_obstacle.y)
+            waypoint1_vec.Rotate(pi / 2) # Rotate 90 degrees clockwise
+            waypoint1_vec.Normalize()
+            waypoint1_vec.Mult(offset_distance)
+            waypoint1 = PVector(obs_center.x, obs_center.y)
+            waypoint1.Add(waypoint1_vec)
+            
+            waypoint2_vec = PVector(vec_to_obstacle.x, vec_to_obstacle.y)
+            waypoint2_vec.Rotate(-pi / 2) # Rotate 90 degrees counter-clockwise
+            waypoint2_vec.Normalize()
+            waypoint2_vec.Mult(offset_distance)
+            waypoint2 = PVector(obs_center.x, obs_center.y)
+            waypoint2.Add(waypoint2_vec)
+            
+            # Choose the waypoint that is closer to the food target
+            if waypoint1.Distance(food_target) < waypoint2.Distance(food_target):
+                waypoint = waypoint1
+            else:
+                waypoint = waypoint2
+            
+            # Seek the chosen waypoint
+            self.seek(waypoint, "attract")
+            
+        else:
+            # Path is clear, seek food directly
+            self.seek(food_target, "attract")
+
     def boundaries(self, width, height):
         DISTANCE_FROM_BORDER = 100
         desired = None
