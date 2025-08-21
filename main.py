@@ -13,9 +13,9 @@ class Game:
     BUTTERFLIES = 5
     WASPS = 0
 
-    MAX_SPEED = 8
+    MAX_SPEED = 5
     MAX_FORCE = 0.3
-    MEAN_MASS = 4
+    MEAN_MASS = 3
 
     LIGHT_BLUE = (173, 216, 230)
 

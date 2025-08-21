@@ -200,35 +200,38 @@ class Butterfly:
                 steer.scale_to_length(self.max_force * 2)
             self.apply_force(steer)
 
+    def flee(self, target):
+        desired = (self.location - target).normalize() * self.max_speed
+        steer = desired - self.velocity
+        # Apply a stronger force for avoidance
+        if steer.length() > self.max_force * 2.0:
+            steer.scale_to_length(self.max_force * 2.0)
+        self.apply_force(steer)
+
     def avoid_obstacles(self, obstacles):
-        d_max = 100 # detection distance
-        
+        SAFE_DISTANCE = 100  # minimum distance before activating fleeing
         for obstacle in obstacles:
-            # Check if the butterfly's bounding box overlaps with an expanded obstacle bounding box
-            self.rect.center = (int(self.location.x), int(self.location.y)) # Ensure rect is updated
-            expanded_rect = obstacle.rect.inflate(d_max * 2, d_max * 2) # Expand obstacle rect for detection
-            
-            if not expanded_rect.colliderect(self.rect):
-                continue # Not close enough to this obstacle
-
-            # Calculate closest point on obstacle to butterfly's center
-            closest_x = max(obstacle.rect.left, min(self.location.x, obstacle.rect.right))
-            closest_y = max(obstacle.rect.top, min(self.location.y, obstacle.rect.bottom))
-            
-            # Vector from closest point on obstacle to butterfly
-            diff = Vector2(self.location.x - closest_x, self.location.y - closest_y)
-            distance = diff.length()
-
-            if 0 < distance < d_max:
-                # Force away from obstacle, stronger when closer
-                diff = diff.normalize() * (self.max_speed * (d_max - distance) / d_max)
-
-                # Steer away
-                steer = diff - self.velocity
+            # Check if butterfly is within the horizontal span of the obstacle
+            if obstacle.rect.left < self.location.x < obstacle.rect.right:
+                # Check vertical distance to top and bottom edges
+                distance_to_top = abs(self.location.y - obstacle.rect.top)
+                distance_to_bottom = abs(self.location.y - obstacle.rect.bottom)
                 
-                if steer.length() > self.max_force * 1.5:
-                    steer.scale_to_length(self.max_force * 1.5)
-                self.apply_force(steer)
+                if distance_to_top < SAFE_DISTANCE:
+                    self.flee(Vector2(self.location.x, obstacle.rect.top))
+                if distance_to_bottom < SAFE_DISTANCE:
+                    self.flee(Vector2(self.location.x, obstacle.rect.bottom))
+
+            # Check if butterfly is within the vertical span of the obstacle
+            if obstacle.rect.top < self.location.y < obstacle.rect.bottom:
+                # Check horizontal distance to left and right edges
+                distance_to_left = abs(self.location.x - obstacle.rect.left)
+                distance_to_right = abs(self.location.x - obstacle.rect.right)
+
+                if distance_to_left < SAFE_DISTANCE:
+                    self.flee(Vector2(obstacle.rect.left, self.location.y))
+                if distance_to_right < SAFE_DISTANCE:
+                    self.flee(Vector2(obstacle.rect.right, self.location.y))
 
     def seek(self, target, direction):
         CLOSE_ENOUGH = 50
