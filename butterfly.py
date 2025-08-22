@@ -302,7 +302,6 @@ class Butterfly:
         f = force / self.mass
         self.acceleration += f
 
-    # Removed apply_perceptron as it's not used by Butterfly or Wasp anymore.
     # def apply_perceptron(self, target):
     #     brain_result = self.brain.feed_forward(self.forces)
     #     self.apply_force(brain_result)
